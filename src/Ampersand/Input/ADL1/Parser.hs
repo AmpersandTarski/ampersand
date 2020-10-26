@@ -361,14 +361,14 @@ pIndex  = P_Id <$> currPos
 pViewDef :: AmpParser P_ViewDef
 pViewDef = try pFancyViewDef <|> try pViewDefLegacy -- introduces backtracking, but is more elegant than rewriting pViewDefLegacy to disallow "KEY ... ENDVIEW".
 
---- FancyViewDef ::= 'VIEW' Label ConceptOneRef 'DEFAULT'? ('{' ViewObjList '}')?  HtmlView? 'ENDVIEW'
+--- FancyViewDef ::= 'VIEW' Label ConceptOneRef 'DEFAULT'? ('[' ViewObjList ']')?  HtmlView? 'ENDVIEW'
 pFancyViewDef :: AmpParser P_ViewDef
 pFancyViewDef  = mkViewDef <$> currPos
                       <*  pKey "VIEW"
                       <*> pLabel
                       <*> pConceptOneRef
                       <*> pIsThere (pKey "DEFAULT")
-                      <*> (pBraces (pViewSegment False `sepBy` pComma) `opt` [])
+                      <*> (pBrackets (pViewSegment False `sepBy` pComma) `opt` [])
                       <*> pMaybe pHtmlView
                       <*  pKey "ENDVIEW"
     where mkViewDef pos' nm cpt isDef ats html =
@@ -380,9 +380,13 @@ pFancyViewDef  = mkViewDef <$> currPos
                  , vd_ats = ats
                  }
           --- ViewSegmentList ::= ViewSegment (',' ViewSegment)*
-          --- HtmlView ::= 'HTML' 'TEMPLATE' Text
-          pHtmlView :: AmpParser ViewHtmlTemplate
-          pHtmlView = ViewHtmlTemplateFile <$ pKey "HTML" <* pKey "TEMPLATE" <*> pString
+          --- HtmlView ::= 'HTML' 'TEMPLATE' Text ('{' (KEYVALS)'}')?
+          pHtmlView :: AmpParser HtmlTemplateSpec
+          pHtmlView = build <$> currPos <* pKey "HTML" <* pKey "TEMPLATE" <*> pString <*> optional pdefAtts
+            where build :: Origin -> FilePath -> Maybe [TemplateKeyValue] -> HtmlTemplateSpec
+                  build o fp mkeys = HtmlTemplateSpec o fp (fromMaybe [] mkeys)
+                  pdefAtts :: AmpParser [TemplateKeyValue]
+                  pdefAtts = pChevrons $ many pTemplateKeyValue
 --- ViewSegmentLoad ::= Term | 'TXT' Text
 pViewSegmentLoad :: AmpParser (P_ViewSegmtPayLoad TermPrim)           
 pViewSegmentLoad = P_ViewExp  <$> pTerm
@@ -416,9 +420,9 @@ pInterface = lbl <$> currPos
                  <*> pMaybe pRoles 
                  <*> (pColon *> pTerm)          -- the expression of the interface object
                  <*> pMaybe pCruds              -- The Crud-string (will later be tested, that it can contain only characters crud (upper/lower case)
-                 <*> pMaybe (pChevrons $ asText pConid)  -- The view that should be used for this object
+                 <*> pMaybe pViewUsage  -- The view that should be used for this object
                  <*> pSubInterface
-    where lbl :: Origin -> Bool -> Text ->  a -> Maybe (NE.NonEmpty Role) -> Term TermPrim -> Maybe P_Cruds -> Maybe Text -> P_SubInterface -> P_Interface
+    where lbl :: Origin -> Bool -> Text ->  a -> Maybe (NE.NonEmpty Role) -> Term TermPrim -> Maybe P_Cruds -> Maybe ViewUsage -> P_SubInterface -> P_Interface
           lbl p isAPI nm _params roles ctx mCrud mView sub
              = P_Ifc { ifc_IsAPI  = isAPI
                      , ifc_Name   = nm
@@ -438,38 +442,54 @@ pInterface = lbl <$> currPos
           --- Roles ::= 'FOR' RoleList
           pRoles  = pKey "FOR" *> pRole False `sepBy1` pComma
 
---- SubInterface ::= ('BOX' BoxHeader? | 'ROWS' | 'COLS' | 'TABS') Box | 'LINKTO'? 'INTERFACE' ADLid
+--- SubInterface ::= ('BOX' HTMLTemplateUsage? | 'FORM' | 'TABLE') Box | 'LINKTO'? 'INTERFACE' ADLid
 pSubInterface :: AmpParser P_SubInterface
 pSubInterface = P_Box          <$> currPos <*> pBoxHeader <*> pBox
             <|> P_InterfaceRef <$> currPos 
                                <*> pIsThere (pKey "LINKTO") <*  pInterfaceKey 
                                <*> pADLid
-  where pBoxHeader :: AmpParser BoxHeader
+  where pBoxHeader :: AmpParser HTMLTemplateUsage
         pBoxHeader = 
-              build     <$> currPos <* pKey "BOX" <*> optional pBoxSpecification
-          <|> BoxHeader <$> currPos <*> asText (pKey "ROWS") <*> pure []
-          <|> BoxHeader <$> currPos <*> asText (pKey "COLS") <*> pure []
-          <|> BoxHeader <$> currPos <*> asText (pKey "TABS") <*> pure []
-        build :: Origin -> Maybe (Text, [TemplateKeyValue]) ->  BoxHeader
-        build o x = BoxHeader o typ keys
-          where (typ,keys) = case x of 
-                               Nothing -> ("FORM",[]) 
-                               Just (boxtype, atts) -> (boxtype,atts)       
-        pBoxSpecification :: AmpParser (Text, [TemplateKeyValue])
-        pBoxSpecification = pChevrons $
-                                (,) <$> asText (pVarid <|> pConid <|> anyKeyWord)
-                                <*> many pTemplateKeyValue
+              build <$> currPos <* pKey "BOX" <*> optional pHtmlTemplateUsage
+        build :: Origin -> Maybe HTMLTemplateUsage ->  HTMLTemplateUsage
+        build o = fromMaybe HTMLTemplateUsage 
+                              { pos = o
+                              , btType = "FORM"
+                              , btKeys = []
+                              } 
          
-        anyKeyWord :: AmpParser String
-        anyKeyWord = case map pKey keywords of
-                       [] -> fatal "We should have keywords. We allways have."
-                       h:tl -> foldr (<|>) h tl
-        pTemplateKeyValue :: AmpParser TemplateKeyValue
-        pTemplateKeyValue = 
-          TemplateKeyValue 
-                 <$> currPos
-                 <*> asText (pVarid <|> pConid <|> anyKeyWord)
-                 <*> optional (id <$ pOperator "=" <*> asText pString)
+pHtmlTemplateUsage :: AmpParser HTMLTemplateUsage
+pHtmlTemplateUsage = do
+    cp <- currPos
+    (typ,keys) <- pTemplateSpecification
+    return HTMLTemplateUsage
+             { pos = cp
+             , btType = typ
+             , btKeys = keys
+             }
+pViewUsage :: AmpParser ViewUsage
+pViewUsage = do
+    cp <- currPos
+    (typ,keys) <- pTemplateSpecification
+    return ViewUsage
+             { pos = cp
+             , vuView = typ
+             , vuKeys = keys
+             }
+pTemplateSpecification :: AmpParser (Text, [TemplateKeyValue])
+pTemplateSpecification = pChevrons $
+                          (,) <$> asText (pVarid <|> pConid <|> anyKeyWord)
+                              <*> many pTemplateKeyValue
+anyKeyWord :: AmpParser String
+anyKeyWord = case map pKey keywords of
+                [] -> fatal "We should have keywords. We allways have."
+                h:tl -> foldr (<|>) h tl
+pTemplateKeyValue :: AmpParser TemplateKeyValue
+pTemplateKeyValue = 
+  TemplateKeyValue 
+          <$> currPos
+          <*> asText (pVarid <|> pConid <|> anyKeyWord)
+          <*> optional (id <$ pOperator "=" <*> asText pString)
 
 --- ObjDef ::= Label Term ('<' Conid '>')? SubInterface?
 --- ObjDefList ::= ObjDef (',' ObjDef)*
@@ -486,7 +506,7 @@ pObjDef = pBoxItem <$> currPos
     pObj :: AmpParser P_BoxItemTermPrim
     pObj = obj     <$> pTerm            -- the context expression (for example: I[c])
                    <*> pMaybe pCruds
-                   <*> pMaybe (pChevrons $ asText pConid) --for the view
+                   <*> pMaybe pViewUsage --for the view
                    <*> pMaybe pSubInterface  -- the optional subinterface
           where obj ctx mCrud mView msub =
                   P_BxExpr { obj_nm    = fatal "This should have been filled in promptly."

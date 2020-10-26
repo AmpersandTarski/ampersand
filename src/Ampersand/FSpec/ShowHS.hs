@@ -1,4 +1,4 @@
-{-# LANGUAGE DuplicateRecordFields #-}
+﻿{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 module           Ampersand.FSpec.ShowHS
@@ -450,7 +450,7 @@ instance ShowHSName ViewDef where
 
 instance ShowHS ViewDef where
  showHS env indent vd
-  = "Vd ("<>showHS env "" (vdpos vd)<>") "<>tshow (name vd)<>" "<>showHSName (vdcpt vd)
+  = "ViewDef ("<>showHS env "" (vdpos vd)<>") "<>tshow (name vd)<>" "<>showHSName (vdcpt vd)
     <>indent<>"  [ "<>T.intercalate (indent<>"  , ") (showHS env indent <$> vdats vd)<>indent<>"  ]"
 
 instance ShowHS ViewSegment where

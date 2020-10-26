@@ -94,10 +94,10 @@ instance JSON ViewDef View where
  fromAmpersand env fSpec vd = View
   { vwJSONlabel        = name vd
   , vwJSONisDefault    = vdIsDefault vd
-  , vwJSONhtmlTemplate = fmap templateName . vdhtml $ vd
+  , vwJSONhtmlTemplate = fmap vhtFile . vdhtml $ vd
   , vwJSONsegments     = fmap (fromAmpersand env fSpec) . vdats $ vd
   }
-  where templateName (ViewHtmlTemplateFile fn) = fn
+
 instance JSON ViewSegment Segment where
  fromAmpersand _ fSpec seg = Segment
   { segJSONseqNr = vsmSeqNr seg

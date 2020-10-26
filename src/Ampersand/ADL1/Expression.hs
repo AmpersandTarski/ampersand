@@ -4,15 +4,18 @@ module Ampersand.ADL1.Expression (
                       ,subst
                       ,primitives, subExpressions, isMp1, isEEps, isEDcD
                       ,isPos,isNeg, deMorganERad, deMorganECps, deMorganEUni, deMorganEIsc, notCpl, isCpl, isFlipped
-                      ,isFitForCrudC ,isFitForCrudR ,isFitForCrudU ,isFitForCrudD
+                      ,mostLiberalCruds, isFitForCrudC ,isFitForCrudR ,isFitForCrudU ,isFitForCrudD
                       ,exprIsc2list, exprUni2list, exprCps2list, exprRad2list, exprPrd2list
                       ,insParentheses)
 where
 import           Ampersand.Basics
 import           Ampersand.Core.AbstractSyntaxTree
+import           Ampersand.Core.ParseTree(P_Cruds(..))
+import           Ampersand.Misc.HasClasses
 import qualified RIO.NonEmpty as NE
 import qualified RIO.Set as Set
-
+import qualified RIO.Text as T
+import           RIO.Char (toUpper,toLower)
 -- | subst is used to replace each occurrence of a relation
 --   with an expression. The parameter expr will therefore be applied to an
 --   expression of the form Erel rel.
@@ -215,6 +218,28 @@ isFitForCrudU expr =
 isFitForCrudD :: Expression -> Bool
 isFitForCrudD _ = True
 
+-- | Given an expression, derive the most liberal cruds for it. 
+mostLiberalCruds :: (HasFSpecGenOpts env) => env 
+      -> Expression
+      -> Either P_Cruds Origin -- ^ A user could have specified cruds for this expression. If not, the origin must be specified.
+      -> Cruds
+mostLiberalCruds env expr x
+  = Cruds { crudOrig = o
+          , crudC    = isFitForCrudC expr && f 'C' defC
+          , crudR    = isFitForCrudR expr && f 'R' defR
+          , crudU    = isFitForCrudU expr && f 'U' defU
+          , crudD    = isFitForCrudD expr && f 'D' defD
+          }
+        where
+          (str,o) = case x of 
+                  Right org -> ("",org)
+                  Left (P_Cruds org userstr) -> (T.unpack userstr,org)
+          (defC, defR, defU, defD) = view defaultCrudL env
+          f :: Char -> Bool -> Bool 
+          f c def'
+            | toUpper c `elem` str = True
+            | toLower c `elem` str = False
+            | otherwise            = def'
 
 exprIsc2list, exprUni2list, exprCps2list, exprRad2list, exprPrd2list :: Expression -> NE.NonEmpty Expression
 exprIsc2list (EIsc (l,r)) = exprIsc2list l <> exprIsc2list r

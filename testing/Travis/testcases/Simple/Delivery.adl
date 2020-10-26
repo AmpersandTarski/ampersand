@@ -87,7 +87,8 @@ VIEW Order: Order( orderOf;productName
 -- Interfaces
 
 INTERFACE Overview  : I[SESSION]
-TABS["Clients"  : V[SESSION*Client]
+BOX <TABLE>
+   ["Clients"  : V[SESSION*Client]
    , "Vendors"  : V[SESSION*Vendor] 
    , "Products" : V[SESSION*Product]
    , "Orders"   : V[SESSION*Order]

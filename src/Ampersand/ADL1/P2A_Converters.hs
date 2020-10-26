@@ -1,4 +1,4 @@
-{-# LANGUAGE TupleSections #-}
+﻿{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ImplicitParams #-}
@@ -23,7 +23,7 @@ import           Ampersand.Core.ShowAStruct
 import           Ampersand.FSpec.ToFSpec.Populated(sortSpecific2Generic)
 import           Ampersand.Input.ADL1.CtxError
 import           Ampersand.Misc.HasClasses
-import           RIO.Char(toUpper,toLower)
+import           RIO.Char(toUpper)
 import           Data.Hashable
 import qualified RIO.List as L
 import qualified RIO.NonEmpty as NE
@@ -524,7 +524,8 @@ pCtx2aCtx env
               , vd_ats  = pvs   -- view segments
               }
      = (\vdts
-        -> Vd { vdpos  = orig
+        -> ViewDef
+              { vdpos  = orig
               , vdlbl  = lbl
               , vdcpt  = pCpt2aCpt (conceptMap ci) cpt
               , vdIsDefault = isDefault
@@ -587,9 +588,9 @@ pCtx2aCtx env
                   (Just _ , Just P_InterfaceRef{si_isLink=False} )
                       -> Errors . pure $ mkCrudForRefInterfaceError orig
                   _   -> pure()
-              typeCheckViewAnnotation :: Expression -> Maybe Text -> Guarded ()
+              typeCheckViewAnnotation :: Expression -> Maybe ViewUsage -> Guarded ()
               typeCheckViewAnnotation _       Nothing       = pure ()
-              typeCheckViewAnnotation objExpr (Just viewId) =
+              typeCheckViewAnnotation objExpr (Just ViewUsage{vuView = viewId}) =
                 case lookupView viewId of 
                   Just vd -> let viewAnnCptStr = aConcToType $ target objExpr
                                  viewDefCptStr = pConcToType $ vd_cpt vd
@@ -620,33 +621,19 @@ pCtx2aCtx env
     pCruds2aCruds :: Expression -> Maybe P_Cruds -> Guarded Cruds
     pCruds2aCruds expr mCrud = 
        case mCrud of 
-         Nothing -> mostLiberalCruds (Origin "Default for Cruds") ""
+         Nothing -> pure $ mostLiberalCruds env expr (Right (Origin "Default for Cruds"))
          Just pc@(P_Cruds org userCrud )
              | (length . L.nub . map toUpper) userCrudString == length userCrudString &&
                all isValidChar userCrudString
-                         -> warnings pc $ mostLiberalCruds org userCrud 
+                         -> warnings pc $ mostLiberalCruds env expr (Left pc)
              | otherwise -> Errors . pure $ mkInvalidCRUDError org userCrud
            where userCrudString = T.unpack userCrud
         where   
             isValidChar :: Char -> Bool
             isValidChar c = toUpper c `elem` ['C','R','U','D']
-            (defC, defR, defU, defD) = view defaultCrudL env
-            mostLiberalCruds :: Origin -> Text -> Guarded Cruds
-            mostLiberalCruds o str
-             = pure Cruds { crudOrig = o
-                          , crudC    = isFitForCrudC expr && f 'C' defC
-                          , crudR    = isFitForCrudR expr && f 'R' defR
-                          , crudU    = isFitForCrudU expr && f 'U' defU
-                          , crudD    = isFitForCrudD expr && f 'D' defD
-                          }
-                   where
-                     f :: Char -> Bool -> Bool 
-                     f c def'
-                      | toUpper c `elem` T.unpack str = True
-                      | toLower c `elem` T.unpack str = False
-                      | otherwise            = def'
-            warnings :: P_Cruds -> Guarded Cruds -> Guarded Cruds
-            warnings pc@(P_Cruds _ crd) aCruds = addWarnings warns aCruds
+            
+            warnings :: P_Cruds -> Cruds -> Guarded Cruds
+            warnings pc@(P_Cruds _ crd) aCruds = addWarnings warns (pure aCruds)
               where
                 warns :: [Warning]
                 warns = map (mkCrudWarning pc) $ 

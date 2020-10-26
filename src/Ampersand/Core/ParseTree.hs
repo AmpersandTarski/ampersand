@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+﻿{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings#-}
@@ -11,7 +11,8 @@ module Ampersand.Core.ParseTree (
    , P_Relation(..), mergeRels
    , Term(..), TermPrim(..), P_NamedRel(..)
    , PairView(..), PairViewSegment(..), PairViewTerm(..), PairViewSegmentTerm(..)
-   , BoxHeader(..), TemplateKeyValue(..)
+   , HTMLTemplateUsage(..), TemplateKeyValue(..)
+   , ViewUsage(..)
    , SrcOrTgt(..)
    , P_Rule(..)
    , ConceptDef(..)
@@ -21,7 +22,7 @@ module Ampersand.Core.ParseTree (
    , P_BoxItemTermPrim, P_SubInterface, P_Interface(..), P_IClass(..), P_BoxItem(..), P_SubIfc(..)
    , P_Cruds(..)
    , P_IdentDef, P_IdentDf(..) , P_IdentSegment, P_IdentSegmnt(..)
-   , P_ViewDef , P_ViewSegment(..), ViewHtmlTemplate(..)
+   , P_ViewDef , P_ViewSegment(..), HtmlTemplateSpec(..)
    , P_ViewD(..) , P_ViewSegmtPayLoad(..)
 
    , PPurpose(..),PRef2Obj(..),PMeaning(..),PMessage(..)
@@ -620,7 +621,7 @@ newtype P_IClass = P_IClass { iclass_name :: Text } deriving (Eq, Ord, Show)
 type P_SubInterface = P_SubIfc TermPrim
 data P_SubIfc a
               = P_Box          { pos :: !Origin
-                               , si_header :: !BoxHeader
+                               , si_header :: !HTMLTemplateUsage
                                , si_box :: [P_BoxItem a] }
               | P_InterfaceRef { pos :: !Origin
                                , si_isLink :: !Bool --True iff LINKTO is used. (will display as hyperlink)
@@ -629,7 +630,7 @@ data P_SubIfc a
                 deriving (Show)
 
 -- | Key-value pairs used to supply attributes into an HTML template that is used to render a subinterface
-data BoxHeader = BoxHeader
+data HTMLTemplateUsage = HTMLTemplateUsage
     { pos :: !Origin
     , btType :: !Text  
     -- ^ Type of the HTML template that is used for rendering
@@ -638,7 +639,7 @@ data BoxHeader = BoxHeader
     } deriving (Show,Data)
 
 
-instance Traced BoxHeader where
+instance Traced HTMLTemplateUsage where
   origin = pos
 
 data TemplateKeyValue = TemplateKeyValue
@@ -659,7 +660,7 @@ data P_BoxItem a =
            , pos :: Origin         -- ^ position of this definition in the text of the Ampersand source file (filename, line number and column number)
            , obj_ctx :: Term a         -- ^ this expression describes the instances of this object, related to their context.
            , obj_crud :: Maybe P_Cruds  -- ^ the CRUD actions as required by the user  
-           , obj_mView :: Maybe Text -- ^ The view that should be used for this object
+           , obj_mView :: Maybe ViewUsage -- ^ The view that should be used for this object
            , obj_msub :: Maybe (P_SubIfc a)  -- ^ the attributes, which are object definitions themselves.
            }
    | P_BxTxt  { obj_nm :: Text          -- ^ view name of the object definition. The label has no meaning in the Compliant Service Layer, but is used in the generated user interface if it is not an empty string.
@@ -679,6 +680,16 @@ instance Named (P_BoxItem a) where
   name = obj_nm
 instance Traced (P_BoxItem a) where
  origin = pos
+
+data ViewUsage = ViewUsage 
+    { pos :: !Origin
+    , vuView :: !Text
+    -- ^ Name of the VIEW that is referenced by this ViewUsage.
+    , vuKeys :: [TemplateKeyValue] 
+    -- ^ Key-value pairs 
+    } deriving (Show,Data)
+
+
 data P_Cruds = P_Cruds Origin Text deriving Show
 type P_IdentDef = P_IdentDf TermPrim -- this is what is returned by the parser, but we need to change the "TermPrim" for disambiguation
 data P_IdentDf a = -- so this is the parametric data-structure
@@ -720,7 +731,7 @@ data P_ViewD a =
               , vd_lbl :: Text            -- ^ the name (or label) of this View. The label has no meaning in the Compliant Service Layer, but is used in the generated user interface. It is not an empty string.
               , vd_cpt :: P_Concept         -- ^ the concept for which this view is applicable
               , vd_isDefault :: Bool        -- ^ whether or not this is the default view for the concept
-              , vd_html :: Maybe ViewHtmlTemplate -- ^ the html template for this view (not required since we may have other kinds of views as well in the future)
+              , vd_html :: Maybe HtmlTemplateSpec -- ^ the html template for this view (not required since we may have other kinds of views as well in the future)
 --              , vd_text :: Maybe P_ViewText -- Future extension
               , vd_ats :: [P_ViewSegment a] -- ^ the constituent segments of this view.
               } deriving (Show)
@@ -760,15 +771,12 @@ data P_ViewSegmtPayLoad a
                     | P_ViewText { vs_txt :: Text }
                       deriving (Show)
 
-newtype ViewHtmlTemplate = ViewHtmlTemplateFile FilePath
---              | ViewHtmlTemplateInline Text -- Future extension
-                  deriving (Eq, Ord, Show)
+data HtmlTemplateSpec = HtmlTemplateSpec
+   { pos :: !Origin
+   , vhtFile :: !FilePath
+   , vhtKeyVals :: [TemplateKeyValue]
+   } deriving (Show,Data)
 
-{- Future extension:
-data ViewText = ViewTextTemplateFile Text
-              | ViewTextTemplateInline Text
-                  deriving (Eq, Ord, Show)
--}
 
 instance Functor P_ViewSegmtPayLoad where fmap = fmapDefault
 instance Foldable P_ViewSegmtPayLoad where foldMap = foldMapDefault

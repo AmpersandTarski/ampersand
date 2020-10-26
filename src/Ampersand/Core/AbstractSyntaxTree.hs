@@ -25,6 +25,7 @@ module Ampersand.Core.AbstractSyntaxTree (
  , getInterfaceByName
  , SubInterface(..)
  , BoxItem(..),ObjectDef(..),BoxTxt(..)
+ , ViewUsage(..)
  , Object(..)
  , Cruds(..)
  , Default(..)
@@ -61,8 +62,9 @@ import           Ampersand.Core.ParseTree
     , Origin(..)
     , maybeOrdering
     , Traced(..)
-    , ViewHtmlTemplate(..)
-    , BoxHeader(..) -- , TemplateKeyValue(..)
+    , HtmlTemplateSpec(..)
+    , ViewUsage(..)
+    , HTMLTemplateUsage(..) -- , TemplateKeyValue(..)
     , PairView(..)
     , PairViewSegment(..)
     , Prop(..), Props
@@ -270,14 +272,20 @@ newtype IdentitySegment = IdentityExp
          { segment :: ObjectDef
          } deriving (Eq, Show)  -- TODO: refactor to a list of terms
 
-data ViewDef = Vd { vdpos :: Origin          -- ^ position of this definition in the text of the Ampersand source file (filename, line number and column number).
-                  , vdlbl :: Text          -- ^ the name (or label) of this View. The label has no meaning in the Compliant Service Layer, but is used in the generated user interface. It is not an empty string.
-                  , vdcpt :: A_Concept       -- ^ the concept for which this view is applicable
-                  , vdIsDefault :: Bool      -- ^ whether or not this is the default view for the concept
-                  , vdhtml :: Maybe ViewHtmlTemplate -- ^ the html template for this view (not required since we may have other kinds of views as well in the future)
---                  , vdtext :: Maybe ViewText -- Future extension
-                  , vdats :: [ViewSegment]   -- ^ the constituent attributes (i.e. name/expression pairs) of this view.
-                  } deriving (Show)
+data ViewDef = ViewDef
+    { vdpos :: Origin
+    -- ^ position of this definition in the text of the Ampersand source file (filename, line number and column number).
+    , vdlbl :: Text
+    -- ^ the name (or label) of this View. The label has no meaning in the Compliant Service Layer, but is used in the generated user interface. It is not an empty string.
+    , vdcpt :: A_Concept
+    -- ^ the concept for which this view is applicable
+    , vdIsDefault :: Bool
+    -- ^ whether or not this is the default view for the concept
+    , vdhtml :: Maybe HtmlTemplateSpec
+    -- ^ the html template for this view (not required since we may have other kinds of views as well in the future)
+    , vdats :: [ViewSegment]
+    -- ^ the constituent attributes (i.e. name/expression pairs) of this view.
+    } deriving (Show)
 instance Named ViewDef where
   name = vdlbl
 instance Traced ViewDef where
@@ -293,14 +301,14 @@ data ViewSegment = ViewSegment
      , vsmlabel :: Maybe Text
      , vsmSeqNr :: Integer
      , vsmLoad  :: ViewSegmentPayLoad
-     } deriving Show
+     } deriving (Show, Data)
 instance Traced ViewSegment where
   origin = vsmpos
 data ViewSegmentPayLoad
                  = ViewExp { vsgmExpr :: Expression
                            }
                  | ViewText{ vsgmTxt  :: Text
-                           }deriving (Eq, Show)
+                           }deriving (Eq, Show, Data)
 
 
 -- | data structure AClassify contains the CLASSIFY statements from an Ampersand script
@@ -417,14 +425,20 @@ instance Ord BoxTxt where
      x -> x  
 instance Eq BoxTxt where
  a == b = compare a b == EQ
-data ObjectDef = 
-    ObjectDef { objnm    :: Text         -- ^ view name of the object definition. The label has no meaning in the Compliant Service Layer, but is used in the generated user interface if it is not an empty string.
-           , objpos   :: Origin         -- ^ position of this definition in the text of the Ampersand source file (filename, line number and column number)
-           , objExpression :: Expression -- ^ this expression describes the instances of this object, related to their context.
-           , objcrud  :: Cruds          -- ^ CRUD as defined by the user 
-           , objmView :: Maybe Text   -- ^ The view that should be used for this object
-           , objmsub  :: Maybe SubInterface -- ^ the fields, which are object definitions themselves.
-           } deriving (Show)        -- just for debugging (zie ook instance Show BoxItem)
+data ObjectDef = ObjectDef
+           { objnm    :: !Text
+           -- ^ view name of the object definition. The label has no meaning in the Compliant Service Layer, but is used in the generated user interface if it is not an empty string.
+           , objpos   :: !Origin
+           -- ^ position of this definition in the text of the Ampersand source file (filename, line number and column number)
+           , objExpression :: !Expression
+           -- ^ this expression describes the instances of this object, related to their context.
+           , objcrud  :: !Cruds
+           -- ^ CRUD as defined by the user 
+           , objmView :: Maybe ViewUsage
+           -- ^ The view that should be used for this object
+           , objmsub  :: Maybe SubInterface
+           -- ^ the fields, which are object definitions themselves.
+           } deriving (Show) -- just for debugging (zie ook instance Show BoxItem)
 instance Named ObjectDef where
   name   = objnm
 instance Traced ObjectDef where
@@ -454,7 +468,7 @@ data Cruds = Cruds { crudOrig :: Origin
                    } deriving (Show)
 data SubInterface = Box { pos       :: !Origin
                         , siConcept :: !A_Concept
-                        , siHeader  :: !BoxHeader
+                        , siHeader  :: !HTMLTemplateUsage
                         , siObjs    :: [BoxItem] 
                         }
                   | InterfaceRef 

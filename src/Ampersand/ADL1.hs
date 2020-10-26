@@ -21,12 +21,13 @@ import Ampersand.Core.ParseTree (
          , P_Rule(..),Role(..)
          , Prop(..),Props
          , P_IdentDef, P_IdentSegment,P_IdentDf(..),P_IdentSegmnt(..)
-         , P_ViewDef, P_ViewSegment(..),P_ViewSegmtPayLoad(..),P_ViewD(..),ViewHtmlTemplate(..)
+         , P_ViewDef, P_ViewSegment(..),P_ViewSegmtPayLoad(..),P_ViewD(..),HtmlTemplateSpec(..)
          , P_Population(..),PAtomPair(..)
          , P_BoxItemTermPrim,P_BoxItem(..)
          , P_Interface(..)
          , P_SubInterface,P_SubIfc(..),P_Cruds(..)
-         , BoxHeader(..), TemplateKeyValue(..)
+         , HTMLTemplateUsage(..), TemplateKeyValue(..)
+         , ViewUsage(..)
          , Term(..)
          , TermPrim(..), P_NamedRel(..)
          , PClassify(..)
@@ -71,7 +72,7 @@ import Ampersand.ADL1.Expression
          ( primitives,subExpressions,Expressions
          , notCpl, isCpl, isEEps, isMp1, isFlipped
          , isPos, isNeg
-         , isFitForCrudC ,isFitForCrudR ,isFitForCrudU ,isFitForCrudD
+         , mostLiberalCruds, isFitForCrudC ,isFitForCrudR ,isFitForCrudU ,isFitForCrudD
          , deMorganERad, deMorganECps, deMorganEUni, deMorganEIsc
          , exprIsc2list, exprUni2list, exprCps2list, exprRad2list, exprPrd2list
          , insParentheses)

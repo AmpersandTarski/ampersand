@@ -1,6 +1,6 @@
 CONTEXT PrototypeFramework IN ENGLISH
 
-    VIEW "PF_NavMenuItem" : PF_NavMenuItem DEFAULT { label : label } ENDVIEW
+    VIEW "PF_NavMenuItem" : PF_NavMenuItem DEFAULT [ label : label ] ENDVIEW
     
     --[ADMIN INTERFACES to adapt the menus]--------------------------------------------------------
     INTERFACE "Edit navigation menu" FOR Administrator: "_SESSION";V[SESSION*PF_NavMenu] INTERFACE "Edit menu item"

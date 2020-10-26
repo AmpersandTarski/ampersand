@@ -243,30 +243,24 @@ instance Pretty a => Pretty (P_BoxItem a) where
      maybeQuote (name obj) <+> text ":" <+>
        case obj of
         (P_BxExpr _ _ ctx mCrud mView msub)
-           -> nest 2 (pretty ctx <+> crud mCrud <+> view mView <$> pretty msub)
+           -> nest 2 (pretty ctx <+> pretty mCrud <+> pretty mView <$> pretty msub)
         (P_BxTxt  _ _ str)
            -> text "TXT" <+> quote str
            
-        where crud Nothing = empty
-              crud (Just cruds) = pretty cruds
-              view Nothing  = empty
-              view (Just v) = (text . T.unpack) ("<" <> v <> ">")
+instance Pretty ViewUsage where
+    pretty vu = encloseSep  (text " <") (text "> ") (text " ") items
+                    where
+                      items = (text . T.unpack . vuView $ vu) : map pretty (vuKeys vu)
 instance Pretty P_Cruds where
     pretty (P_Cruds _ str) = (text . T.unpack) str
 instance Pretty a => Pretty (P_SubIfc a) where
     pretty p = case p of
                 P_Box _ c bs         -> boxSpec c <+> text "[" <> listOf bs <> text "]"
                 P_InterfaceRef _ isLink str -> text ((if isLink then "LINKTO "else "")++"INTERFACE") <+> maybeQuote str
-            where boxSpec :: BoxHeader -> Doc
+            where boxSpec :: HTMLTemplateUsage -> Doc
                   boxSpec x = text "BOX "<+> encloseSep  (text " <") (text "> ") (text " ") items
                     where
-                      items = (text . T.unpack . btType $ x) : (map prettyKey . btKeys $ x)
-                      prettyKey :: TemplateKeyValue -> Doc
-                      prettyKey kv = (text . T.unpack . name $ kv) 
-                                 <+> (case tkval kv of
-                                        Nothing -> mempty
-                                        Just t  -> text " = " <+> (text . show $ t)
-                                     ) 
+                      items = (text . T.unpack . btType $ x) : map pretty (btKeys x)
      
 instance Pretty (P_IdentDf TermPrim) where
     pretty (P_Id _ lbl cpt ats) =
@@ -279,12 +273,10 @@ instance Pretty (P_IdentSegmnt TermPrim) where
            -> (if T.null nm
                then pretty ctx -- no label
                else maybeQuote nm <> text ":" <~> ctx
-              ) <+> (view . fmap T.unpack) mView
+              ) <+> pretty mView
         (P_BxTxt  nm _ str)
            -> maybeQuote nm 
               <~> text "TXT" <+> quote str
-        where view Nothing  = empty
-              view (Just v) = pretty v
 
 instance Pretty (P_ViewD TermPrim) where
     pretty (P_Vd _ lbl cpt True Nothing ats) = -- legacy syntax
@@ -293,10 +285,22 @@ instance Pretty (P_ViewD TermPrim) where
     pretty (P_Vd _ lbl cpt isDefault html ats) = -- new syntax
         text "VIEW" <+> maybeQuote lbl  <+> text ":"
                     <~> cpt <+> (if isDefault then text "DEFAULT" else empty)
-                    <+> braces (listOf ats) <~> html <+> text "ENDVIEW"
+                    <+> brackets (listOf ats) <~> html <+> text "ENDVIEW"
 
-instance Pretty ViewHtmlTemplate where
-    pretty (ViewHtmlTemplateFile file) = text "HTML" <+> text "TEMPLATE" <+> quote (T.pack file)
+instance Pretty HtmlTemplateSpec where
+    pretty (HtmlTemplateSpec _ file keyVals) = text "HTML" <+> text "TEMPLATE" <+> quote (T.pack file) <~>
+        (case keyVals of 
+          _:_ -> encloseSep (text " <") (text "> ") (text " ") (map pretty keyVals)
+          [] -> mempty
+        )
+
+instance Pretty TemplateKeyValue where
+    pretty kv = (text . T.unpack . name $ kv) 
+                                 <+> (case tkval kv of
+                                        Nothing -> mempty
+                                        Just t  -> text " = " <+> (text . show $ t)
+                                     ) 
+
 instance Pretty (P_ViewSegment TermPrim) where
     pretty (P_ViewSegment mlab _ pl)
         = ( case mlab of 

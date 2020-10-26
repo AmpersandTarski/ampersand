@@ -220,8 +220,8 @@ makeFSpec env context
 --                 , rel<-NE.init cons<>[flp r | r<-NE.tail cons]
 --                 ]
   -- Lookup view by id in fSpec.
-     lookupView' :: Text -> ViewDef
-     lookupView'  viewId =
+     lookupView' :: ViewUsage -> ViewDef
+     lookupView'  ViewUsage{vuView = viewId} =
        case filter (\v -> name v == viewId) $ viewDefs context of
          []   -> fatal ("Undeclared view " <> tshow viewId <> ".") -- Will be caught by static analysis
          [vd] -> vd
@@ -346,7 +346,7 @@ makeFSpec env context
                      { objnm   = showA t
                      , objpos  = orig
                      , objExpression  = t
-                     , objcrud = fatal "No default crud in generated interface"
+                     , objcrud = mostLiberalCruds env t (Right orig)
                      , objmView = Nothing
                      , objmsub = Just . Box orig (target t) (simpleBoxHeader orig) . map BxExpr $ recur [ PARTIAL.fromList pth | pth <-map NE.tail $ NE.toList cl, not (null pth) ]
                      }
@@ -379,12 +379,13 @@ makeFSpec env context
         in
         [Ifc { ifcIsAPI    = False
              , ifcname     = name c
-             , ifcObj      = let orig = Origin "generated object: step 4a - default theme" in
-                             ObjectDef
+             , ifcObj      = let orig = Origin "generated object: step 4a - default theme" 
+                                 expr = EDcI c
+                             in ObjectDef
                                  { objnm   = name c
                                  , objpos  = orig
-                                 , objExpression  = EDcI c
-                                 , objcrud = fatal "No default crud in generated interface"
+                                 , objExpression  = expr
+                                 , objcrud = mostLiberalCruds env expr (Right orig)
                                  , objmView = Nothing
                                  , objmsub = Just . Box orig c (simpleBoxHeader orig) . map BxExpr $ NE.toList objattributes
                                  }
@@ -402,12 +403,13 @@ makeFSpec env context
      step4b --generate lists of concept instances for those concepts that have a generated INTERFACE in step4a
       = [Ifc { ifcIsAPI    = False
              , ifcname     = nm
-             , ifcObj      = let orig = Origin "generated object: step 4b" in
-                             ObjectDef
+             , ifcObj      = let orig = Origin "generated object: step 4b"
+                                 expr = EDcI ONE
+                             in ObjectDef
                                  { objnm   = nm
                                  , objpos  = orig
-                                 , objExpression  = EDcI ONE
-                                 , objcrud = fatal "No default crud in generated interface"
+                                 , objExpression  = expr
+                                 , objcrud = mostLiberalCruds env expr (Right orig)
                                  , objmView = Nothing
                                  , objmsub = Just . Box orig ONE (simpleBoxHeader orig) $ [BxExpr att]
                                  }
@@ -424,11 +426,13 @@ makeFSpec env context
               nm = case [nm' i |i<-[0..], nm' i `notElem` map name (ctxifcs context)] of
                      []  -> fatal "impossible"
                      h:_ -> h
-              att = ObjectDef
+              att = let orig = Origin "generated attribute object: step 4b" 
+                        expr = EDcV (Sign ONE c)
+                    in ObjectDef
                         { objnm    = name c
-                        , objpos   = Origin "generated attribute object: step 4b"
-                        , objExpression   = EDcV (Sign ONE c)
-                        , objcrud  = fatal "No default crud in generated interface."
+                        , objpos   = orig
+                        , objExpression   = expr
+                        , objcrud  = mostLiberalCruds env expr (Right orig)
                         , objmView = Nothing
                         , objmsub  = Nothing
                         }
@@ -506,5 +510,5 @@ tblcontents ci ps plug
                                   --  , when a relation in formalAmpersand is declared UNI, but actually it isn't.
 
 -- convenient function to give a Box header without keyvalues
-simpleBoxHeader :: Origin -> BoxHeader
-simpleBoxHeader orig = BoxHeader {pos = orig, btType = "ROWS", btKeys = []}
+simpleBoxHeader :: Origin -> HTMLTemplateUsage
+simpleBoxHeader orig = HTMLTemplateUsage {pos = orig, btType = "ROWS", btKeys = []}

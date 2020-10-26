@@ -78,7 +78,7 @@ objTermPrim isTxtAllowed i =
 genObj :: Arbitrary a => Bool -> Int -> Gen (P_BoxItem a)
 genObj isTxtAllowed = makeObj isTxtAllowed arbitrary genIfc (pure Nothing)
 
-makeObj :: Bool -> Gen a -> (Int -> Gen (P_SubIfc a)) -> Gen (Maybe Text) -> Int -> Gen (P_BoxItem a)
+makeObj :: Bool -> Gen a -> (Int -> Gen (P_SubIfc a)) -> Gen (Maybe ViewUsage) -> Int -> Gen (P_BoxItem a)
 makeObj isTxtAllowed genPrim ifcGen genView n =
   oneof $ (P_BxExpr <$> lowerId  <*> arbitrary <*> term <*> arbitrary <*> genView <*> ifc)
          :[P_BxTxt  <$> lowerId  <*> arbitrary <*> safeStr | isTxtAllowed]
@@ -94,10 +94,10 @@ subIfc objGen n
     | n == 0 = P_InterfaceRef <$> arbitrary <*> arbitrary <*> safeStr1
     | otherwise = P_Box  <$> arbitrary <*> arbitrary <*> vectorOf n (objGen$ n`div`2)
 
-instance Arbitrary BoxHeader where
+instance Arbitrary HTMLTemplateUsage where
     arbitrary = oneof 
-       [ BoxHeader <$> arbitrary <*> pure "BOX" <*> listOf arbitrary
-       , BoxHeader <$> arbitrary <*> elements  ["COLS","ROWS","TABS"]  <*> pure [] 
+       [ HTMLTemplateUsage <$> arbitrary <*> pure "BOX" <*> listOf arbitrary
+       , HTMLTemplateUsage <$> arbitrary <*> elements  ["FORM","TABLE"]  <*> pure [] 
        ]
 instance Arbitrary TemplateKeyValue where
     arbitrary = TemplateKeyValue 
@@ -313,8 +313,9 @@ instance Arbitrary a => Arbitrary (P_ViewD a) where
     arbitrary = P_Vd <$> arbitrary <*> safeStr <*> arbitrary
                     <*> arbitrary <*> arbitrary <*> arbitrary
 
-instance Arbitrary ViewHtmlTemplate where
-    arbitrary = ViewHtmlTemplateFile <$> safeFilePath
+instance Arbitrary HtmlTemplateSpec where
+    arbitrary = HtmlTemplateSpec <$> arbitrary <*> safeFilePath
+                    <*> arbitrary
 
 instance Arbitrary a => Arbitrary (P_ViewSegment a) where
     arbitrary = P_ViewSegment <$> (Just <$> safeStr) <*> arbitrary <*> arbitrary 

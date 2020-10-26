@@ -15,7 +15,7 @@ module Ampersand.Output.ToJSON.JSONutils
 where
 import           Ampersand.Basics
 import           Ampersand.Classes
-import           Ampersand.Core.ParseTree ( Role, ViewHtmlTemplate(ViewHtmlTemplateFile))
+import           Ampersand.Core.ParseTree ( Role, HtmlTemplateSpec(HtmlTemplateSpec))
 import           Ampersand.Core.ShowAStruct
 import           Ampersand.FSpec.ToFSpec.Populated
 import           Ampersand.FSpec.FSpec

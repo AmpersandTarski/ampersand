@@ -87,7 +87,7 @@ data FSpec = FSpec { fsName ::       Text
                    -- ^ All views that apply in the entire FSpec
                    , getDefaultViewForConcept :: A_Concept -> Maybe ViewDef
                    , getAllViewsForConcept :: A_Concept -> [ViewDef]
-                   , lookupView :: Text -> ViewDef            
+                   , lookupView :: ViewUsage -> ViewDef            
                    -- ^ Lookup view by id in fSpec.
                    , vgens ::        [AClassify]              
                    -- ^ All gens that apply in the entire FSpec

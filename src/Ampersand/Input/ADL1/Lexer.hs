@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
+﻿{-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Ampersand.Input.ADL1.Lexer
@@ -67,7 +67,7 @@ keywords  = L.nub $
                 ] ++ 
                 -- Keywords for interfaces
                 [ "INTERFACE", "FOR", "LINKTO", "API"
-                , "BOX", "ROWS", "TABS", "COLS"
+                , "BOX"
                 -- Keywords for identitys
                 , "IDENT"
                 -- Keywords for views
