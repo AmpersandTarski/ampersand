@@ -13,13 +13,13 @@ module Ampersand.Commands.Proto
 import           Ampersand.Basics
 import           Ampersand.FSpec
 import           Ampersand.Misc.HasClasses
-import           Ampersand.Prototype.GenFrontend (doGenFrontend, doGenBackend, copyCustomizations)
+import           Ampersand.Prototype.GenFrontend (doGenFrontend, doGenBackend)
 import           Ampersand.Types.Config
 import qualified RIO.Text as T
 import           System.Directory
 -- | Builds a prototype of the current project.
 --
-proto :: (Show env, HasRunner env, HasFSpecGenOpts env, HasDirCustomizations env, HasZwolleVersion env, HasProtoOpts env, HasDirPrototype env, HasGenerateFrontend env, HasGenerateBackend env) 
+proto :: (Show env, HasRunner env, HasFSpecGenOpts env, HasProtoOpts env, HasDirPrototype env, HasGenerateFrontend env, HasGenerateBackend env, HasCheckCompilerVersion env) 
        => FSpec -> RIO env ()
 proto fSpec = do
     env <- ask
@@ -34,7 +34,6 @@ proto fSpec = do
     if generateBackend
       then do doGenBackend fSpec
       else do logDebug "  Skipping generating backend files"
-    copyCustomizations
     dirPrototypeA <- liftIO $ makeAbsolute dirPrototype
     logInfo $ "Prototype files have been written to " <> display (T.pack dirPrototypeA)
 

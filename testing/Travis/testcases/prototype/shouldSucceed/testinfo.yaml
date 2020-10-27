@@ -1,5 +1,3 @@
 testCmds:
-#  - command: ampersand validate --verbose
-#    exitcode: 0
-  - command: ampersand proto --verbose
+  - command: ampersand validate --verbose
     exitcode: 0

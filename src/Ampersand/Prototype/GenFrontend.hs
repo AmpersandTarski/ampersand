@@ -1,9 +1,10 @@
 ﻿{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Ampersand.Prototype.GenFrontend (doGenFrontend, doGenBackend, copyCustomizations) where
+module Ampersand.Prototype.GenFrontend (doGenFrontend, doGenBackend) where
 
 import           Ampersand.ADL1
 import           Ampersand.Basics
+import           Ampersand.Basics.BuildInfo_Generated (cabalVersionStr)
 import           Ampersand.Classes.Relational
 import           Ampersand.Core.ShowAStruct
 import           Ampersand.FSpec.FSpec
@@ -14,13 +15,12 @@ import           Ampersand.Output.ToJSON.ToJson
 import           Ampersand.Prototype.ProtoUtil
 import           Ampersand.Runners (logLevel)
 import           Ampersand.Types.Config
-import           Codec.Archive.Zip
 import           Data.Hashable (hash)
-import           Network.HTTP.Simple
 import qualified RIO.ByteString.Lazy  as BL
 import qualified RIO.Text as T
 import qualified RIO.List as L
 import           RIO.Time
+import           Salve
 import           System.Directory
 import           System.FilePath
 import           Text.StringTemplate(Stringable, StringTemplate, setAttribute, newSTMP, checkTemplateDeep, render)
@@ -64,12 +64,11 @@ This is considered editable iff the composition rel;relRef yields an editable re
 --       composite attributes in anonymous templates will hang the generator :-(
 --       Eg.  "$subObjects:{subObj| .. $subObj.nonExistentField$ .. }$"
 
-doGenFrontend :: (HasFSpecGenOpts env, HasRunner env, HasProtoOpts env, HasZwolleVersion env, HasDirPrototype env) =>
+doGenFrontend :: (HasFSpecGenOpts env, HasRunner env, HasDirPrototype env) =>
                  FSpec -> RIO env ()
 doGenFrontend fSpec = do
     now <- getCurrentTime
     logInfo "Generating frontend..."
-    _ <- downloadPrototypeFramework
     copyTemplates
     feInterfaces <- buildInterfaces fSpec
     genViewInterfaces fSpec feInterfaces
@@ -78,12 +77,16 @@ doGenFrontend fSpec = do
     writePrototypeAppFile ".timestamp" (tshow . hash . show $ now) -- this hashed timestamp is used by the prototype framework to prevent browser from using the wrong files from cache
     logInfo "Frontend generated"
 
-doGenBackend :: (Show env, HasRunner env, HasProtoOpts env, HasDirPrototype env) =>
+doGenBackend :: (Show env, HasRunner env, HasProtoOpts env, HasDirPrototype env, HasCheckCompilerVersion env) =>
                 FSpec -> RIO env ()
 doGenBackend fSpec = do
   env <- ask
+  checkCompilerVersion <- view checkCompilerVersionL
   logInfo "Generating backend..."
   let dir = getGenericsDir env
+  if checkCompilerVersion
+    then do checkCompilerCompatibility
+    else do logInfo "Skipping compiler version check"
   writeFileUtf8 (dir </> "database"   <.>"sql" ) $ databaseStructureSql fSpec
   writeFile (dir </> "settings"   <.>"json") $ settingsToJSON env fSpec
   writeFile (dir </> "relations"  <.>"json") $ relationsToJSON env fSpec
@@ -95,6 +98,44 @@ doGenBackend fSpec = do
   writeFile (dir </> "roles"      <.>"json") $ rolesToJSON env fSpec
   writeFile (dir </> "populations"<.>"json") $ populationToJSON env fSpec
   logInfo "Backend generated"
+
+checkCompilerCompatibility :: (HasLogFunc env, HasDirPrototype env) => RIO env ()
+checkCompilerCompatibility =
+  do
+    env <- ask
+    let filePath = compilerVersionFile env
+    res <- readUTF8File filePath
+    case res of
+      Left err ->
+        -- For now, log a warning when compiler-version.txt cannot be read (e.g. when file does not exists)
+        -- #TODO when prototype framework is updated (i.e. contains compiler-version.txt), throw an error and exit
+        logWarn $ "WARNING: Cannot determine compiler compatibility. Error reading compiler version file: " <> displayShow err
+      Right content -> do
+        let constraints = map makeConstraint $ lines (T.unpack content)
+        let failedConstraints = checkConstraints compilerVersion constraints
+        case failedConstraints of
+          [] -> logInfo "Ampersand compiler is compatible with targeted prototype framework"
+          _  -> do
+            mapM_ (\ constraint -> logInfo $ "Ampersand compiler version " <> displayShow (renderVersion compilerVersion) <> " does not satisfy constraint " <> displayShow (renderConstraint constraint)) failedConstraints
+            exitWith $ FailedToGeneratePrototypeBackend ["Ampersand compiler is not compatible with deployed prototype framework. Check version constraints in ", T.pack (compilerVersionFile env)]
+  where
+    makeConstraint :: String -> Constraint
+    makeConstraint constraintStr =
+      case parseConstraint constraintStr of
+        Just constraint -> constraint
+        Nothing -> exitWith $ FailedToGeneratePrototypeBackend ["Cannot parse Ampersand compiler version constraint '" <> T.pack constraintStr <> "'"]
+    
+    compilerVersion = 
+      case parseVersion (T.unpack cabalVersionStr) of
+        Just version -> version
+        Nothing -> exitWith $ FailedToGeneratePrototypeBackend ["Cannot parse Ampersand compiler version " <> cabalVersionStr]
+
+    compilerVersionFile :: HasDirPrototype a => a -> FilePath
+    compilerVersionFile env = getGenericsDir env </> "compiler-version.txt"
+
+    checkConstraints :: Version -> [Constraint] -> [Constraint]
+    checkConstraints version constraints =
+      filter (\ constraint -> not $ satisfiesConstraint constraint version) constraints
 
 writeFile :: (HasLogFunc env) => FilePath -> BL.ByteString -> RIO env()
 writeFile filePath content = do
@@ -114,24 +155,6 @@ copyTemplates = do
          copyDirRecursively tempDir toDir -- recursively copy all templates
   else
          logDebug $ "No project specific templates (there is no directory " <> display (T.pack tempDir) <> ")"
-
-copyCustomizations :: (HasDirPrototype env, HasFSpecGenOpts env , HasDirCustomizations env,HasLogFunc env) =>
-                      RIO env ()
-copyCustomizations = do
-  env <- ask
-  dirCustomizations <- view dirCustomizationsL
-  let dirPrototype = getDirPrototype env
-  let custDirs = maybe [] (map (dirSource env </>)) dirCustomizations
-  mapM_ (copyDir dirPrototype) custDirs
-    where
-      copyDir :: (HasLogFunc env) =>
-                 FilePath -> FilePath -> RIO env()
-      copyDir targetDir sourceDir = do
-        sourceDirExists <- liftIO $ doesDirectoryExist sourceDir
-        if sourceDirExists then
-          do logDebug $ "Copying customizations from " <> display (T.pack sourceDir) <> " -> " <> display (T.pack targetDir)
-             copyDirRecursively sourceDir targetDir -- recursively copy all customizations
-        else logDebug $ "No customizations (there is no directory " <> display (T.pack sourceDir) <> ")"
 
 ------ Build intermediate data structure
 -- NOTE: _ disables 'not used' warning for fields
@@ -507,100 +530,3 @@ renderTemplate userAtts (Template template absPath) setRuntimeAtts =
             doAttribute h = case tkval h of
                 Nothing ->  setAttribute (T.unpack $ tkkey h) True
                 Just val -> setAttribute (T.unpack $ tkkey h) val
-
-downloadPrototypeFramework :: (HasRunner env, HasProtoOpts env, HasZwolleVersion env, HasDirPrototype env) =>
-                             RIO env Bool
-downloadPrototypeFramework = ( do 
-    env <- ask
-    let dirPrototype = getDirPrototype env
-    x <- extractionIsAllowed dirPrototype
-    zwolleVersion <- view zwolleVersionL
-    if x
-    then do
-      logDebug "Emptying folder to deploy prototype framework"
-      liftIO $ removeDirectoryRecursive dirPrototype
-      let url :: FilePath
-          url = "https://github.com/AmpersandTarski/Prototype/archive/"<>zwolleVersion<>".zip"
-      logDebug "Start downloading prototype framework."
-      response <- (parseRequest url >>= httpBS) `catch` \err ->  
-                          exitWith . FailedToInstallPrototypeFramework $
-                              [ "Error encountered during deployment of prototype framework:"
-                              , "  Failed to download "<>T.pack url
-                              , tshow (err :: SomeException)
-                              ]
-      let archive = removeTopLevelFolder 
-                  . toArchive 
-                  . BL.fromStrict 
-                  . getResponseBody $ response
-      logDebug "Start extraction of prototype framework."
-      runner <- view runnerL
-      let zipoptions = 
-               [OptVerbose | logLevel runner == LevelDebug]
-            <> [OptDestination dirPrototype]
-      (liftIO . extractFilesFromArchive zipoptions $ archive) `catch` \err ->  
-                          exitWith . FailedToInstallPrototypeFramework $
-                              [ "Error encountered during deployment of prototype framework:"
-                              , "  Failed to extract the archive found at "<>T.pack url
-                              , tshow (err :: SomeException)
-                              ]
-
-
-
-
-      let dest = dirPrototype </> ".frameworkSHA"  
-      (writeFileUtf8 dest . tshow . zComment $ archive) `catch` \err ->  
-                          exitWith . FailedToInstallPrototypeFramework $
-                              [ "Error encountered during deployment of prototype framework:"
-                              , "Archive seems valid: "<>T.pack url
-                              , "  Failed to write contents of archive to "<>T.pack dest
-                              , tshow (err :: SomeException)
-                              ]
-      return x
-    else return x
-  ) `catch` \err ->  -- git failed to execute
-         exitWith . FailedToInstallPrototypeFramework $
-            [ "Error encountered during deployment of prototype framework:"
-            , tshow (err :: SomeException)
-            ]
-            
-  where
-    removeTopLevelFolder :: Archive -> Archive
-    removeTopLevelFolder archive = 
-       archive{zEntries = mapMaybe removeTopLevelPath . zEntries $ archive}
-      where
-        removeTopLevelPath :: Entry -> Maybe Entry
-        removeTopLevelPath entry = 
-            case splitPath . eRelativePath $ entry of
-              []   -> fatal "Impossible"
-              [_]  -> Nothing
-              _:tl -> Just entry{eRelativePath = joinPath tl}
-
-    extractionIsAllowed :: (HasProtoOpts env, HasLogFunc env) =>
-                           FilePath ->  RIO env Bool
-    extractionIsAllowed destination = do
-      pathExist <- liftIO $ doesPathExist destination
-      destIsDirectory <- liftIO $ doesDirectoryExist destination 
-      if pathExist
-      then 
-          if destIsDirectory
-          then do 
-            dirContents <- liftIO $ listDirectory destination
-            if null dirContents
-            then return True
-            else do
-              forceReinstallFramework <- view forceReinstallFrameworkL
-              if forceReinstallFramework
-              then do
-            --    logWarn $ "This will delete all files in" <> displayShow destination
-            --    logWarn $ "Are you sure? y/n"
-            --    proceed <- promptUserYesNo
-                return True -- proceed
-              else redeployNotAllowed
-          else redeployNotAllowed
-      else return True
-      where redeployNotAllowed = do
-                logError $ "(Re)deploying prototype framework not allowed, because "<>
-                           "  "<>displayShow destination<>" isn't empty."
-                logInfo    "You could use the switch --force-reinstall-framework"
-                return False
-

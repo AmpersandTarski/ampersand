@@ -29,6 +29,8 @@ exitWith x = unsafePerformIO $ do
 data AmpersandExit 
   = FailedToInstallPrototypeFramework [Text]
   -- ^ An attempt to install the prototype framework failed.
+  | FailedToGeneratePrototypeBackend [Text]
+  -- ^ An attempt to generate prototype backend failed.
   | Fatal [Text]
   -- ^ These specific errors are due to some bug in the Ampersand code. Please report such bugs!
   | InvalidSQLExpression [Text]
@@ -82,6 +84,8 @@ info x =
               -> (SE.ExitFailure  60 , msg)
     FailedToInstallPrototypeFramework msg
               -> (SE.ExitFailure  80 , msg)
+    FailedToGeneratePrototypeBackend msg
+              -> (SE.ExitFailure  81 , msg)
     NoFilesToWatch
               -> (SE.ExitFailure 100 , ["ERROR: No files loaded, nothing to wait for. Fix the last error and restart."])
     NoConfigurationFile msg

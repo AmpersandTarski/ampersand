@@ -63,6 +63,7 @@ dependencies:
       - QuickCheck == 2.13.*
       - quickcheck-instances
       - rio == 0.1.*
+      - salve == 1.*
       - simple-sql-parser == 0.4.4
       - split == 0.2.*
       - SpreadsheetML == 0.1.*

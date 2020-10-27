@@ -74,6 +74,11 @@ class HasGenerateBackend a where
 instance HasGenerateBackend ProtoOpts where
   generateBackendL = lens xgenerateBackend (\x y -> x { xgenerateBackend = y })
 
+class HasCheckCompilerVersion a where
+  checkCompilerVersionL :: Lens' a Bool
+instance HasCheckCompilerVersion ProtoOpts where
+  checkCompilerVersionL = lens xcheckCompilerVersion (\x y -> x { xcheckCompilerVersion = y })
+
 class HasRootFile a where
   rootFileL :: Lens' a (Maybe FilePath)
   baseName :: a -> FilePath
@@ -106,16 +111,6 @@ class HasShowWarnings a where
   showWarningsL :: Lens' a Bool  -- Should warnings be given to the output?
 instance HasDaemonOpts a => HasShowWarnings a where
   showWarningsL = daemonOptsL . lens xshowWarnings (\x y -> x { xshowWarnings = y })
-
-class HasDirCustomizations a where
-  dirCustomizationsL :: Lens' a (Maybe [FilePath]) -- the directories that are copied after generating the prototype
-instance HasDirCustomizations ProtoOpts where
-  dirCustomizationsL = lens xdirCustomizations (\x y -> x { xdirCustomizations = y })
-
-class HasZwolleVersion a where
-  zwolleVersionL :: Lens' a FilePath -- the version in github of the prototypeFramework. can be a tagname, a branchname or a SHA
-instance HasZwolleVersion ProtoOpts where
-  zwolleVersionL = lens xzwolleVersion (\x y -> x { xzwolleVersion = y })
 
 class HasDirOutput a where
   dirOutputL :: Lens' a FilePath -- the directory to generate the output in.
@@ -150,9 +145,6 @@ class HasVersion a where
 
 class HasProtoOpts env where
    protoOptsL :: Lens' env ProtoOpts
-   forceReinstallFrameworkL :: Lens' env Bool
-   forceReinstallFrameworkL
-             = protoOptsL . lens xforceReinstallFramework (\x y -> x { xforceReinstallFramework = y })
 instance HasProtoOpts ProtoOpts where
    protoOptsL = id
    {-# INLINE protoOptsL #-}
@@ -247,15 +239,12 @@ data InputOutputOpts = InputOutputOpts
 
 -- | Options for @ampersand proto@.
 data ProtoOpts = ProtoOpts
-   { xforceReinstallFramework :: !Bool
-   -- ^ when true, an existing prototype directory will be destroyed and re-installed
-   , x1OutputLanguage :: !(Maybe Lang)
+   { x1OutputLanguage :: !(Maybe Lang)
    , x1fSpecGenOpts :: !FSpecGenOpts
    , xdirPrototype :: !(Maybe FilePath)
-   , xdirCustomizations :: !(Maybe [FilePath])
-   , xzwolleVersion :: !FilePath
    , xgenerateFrontend :: !Bool
    , xgenerateBackend :: !Bool
+   , xcheckCompilerVersion :: !Bool
   } deriving Show
 
 -- | Options for @ampersand documentation@.
