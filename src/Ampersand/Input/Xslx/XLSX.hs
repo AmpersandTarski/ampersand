@@ -73,7 +73,10 @@ toPops env file x = map popForColumn (colNrs x)
       else  P_RelPopu { pos = popOrigin
                       , p_src = src
                       , p_tgt = trg
-                      , p_nmdr = PNamedRel popOrigin relName Nothing -- The P-to-A converter must assign the type.
+                      , p_nmdr 
+                         = case (src, trg) of
+                             (Just s, Just t) -> PNamedRel popOrigin relName (Just (P_Sign (PCpt s) (PCpt t)))
+                             _                -> PNamedRel popOrigin relName Nothing
                       , p_popps = thePairs
                       }
      where                             
