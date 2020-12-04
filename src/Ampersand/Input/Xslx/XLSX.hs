@@ -43,7 +43,7 @@ parseXlsxFile mFk file =
 data SheetCellsForTable 
        = Mapping{ theSheetName :: Text
                 , theCellMap   :: CellMap
-                , headerRowNrs :: [Int]
+                , headerRowNrs :: (Int,Int) -- Two rows denoting the header of the Mapping
                 , popRowNrs    :: [Int]
                 , colNrs       :: [Int]
                 , debugInfo :: [Text]
@@ -81,13 +81,11 @@ toPops env file x = map popForColumn (colNrs x)
        (src,trg) = case mTargetConceptName of
                   Just tCptName -> both (fmap mkPConcept) $ (if isFlipped' then swap else id) (Just sourceConceptName, Just tCptName)
                   Nothing -> (Nothing,Nothing)
-          
+       mbSign :: Maybe P_Sign
+       mbSign = P_Sign <$> src <*> trg 
        popOrigin :: Origin
        popOrigin = originOfCell (relNamesRow, targetCol)
-       (relNamesRow,conceptNamesRow) = case headerRowNrs x of
-                                         [] -> fatal "headerRowNrs x is empty"
-                                         [rnr] -> (rnr,fatal "headerRowNrs x has only one element")
-                                         rnr:cnr:_ -> (rnr,cnr)
+       (relNamesRow,conceptNamesRow) = headerRowNrs x
        sourceCol       = case colNrs x of
                            [] -> fatal "colNrs x is empty"
                            c:_ -> c
@@ -175,7 +173,7 @@ toPops env file x = map popForColumn (colNrs x)
 
 theSheetCellsForTable :: (Text,Worksheet) -> [SheetCellsForTable]
 theSheetCellsForTable (sheetName,ws) 
-  =  catMaybes [theMapping i | i <- [0..length tableStarters - 1]]
+  = mapMaybe theMapping [0..length tableStarters - 1]
   where
     tableStarters :: [(Int,Int)]
     tableStarters = filter isStartOfTable $ Map.keys (ws  ^. wsCells)  
@@ -195,12 +193,13 @@ theSheetCellsForTable (sheetName,ws)
          _                 -> False 
         
     theMapping :: Int -> Maybe SheetCellsForTable
-    theMapping indexInTableStarters 
-     | length okHeaderRows /= nrOfHeaderRows = Nothing  -- Because there are not enough header rows
-     | otherwise
-     =  Just Mapping { theSheetName = sheetName
+    theMapping indexInTableStarters =
+       case okHeaderRows of
+         Nothing -> Nothing
+         Just headers -> Just 
+             Mapping { theSheetName = sheetName
                      , theCellMap   = ws  ^. wsCells
-                     , headerRowNrs = okHeaderRows
+                     , headerRowNrs = headers
                      , popRowNrs    = populationRows
                      , colNrs       = theCols
                      , debugInfo = [ "indexInTableStarters: "<>tshow indexInTableStarters
@@ -229,7 +228,9 @@ theSheetCellsForTable (sheetName,ws)
                              Just m -> m
        firstPopRowNr = firstHeaderRowNr + nrOfHeaderRows
        lastPopRowNr = ((map fst tableStarters<>[maxRowOfWorksheet+1]) `L.genericIndex` (indexInTableStarters+1))-1
-       okHeaderRows = filter isProperRow [firstHeaderRowNr,firstHeaderRowNr+nrOfHeaderRows-1]
+       okHeaderRows = case filter isProperRow [firstHeaderRowNr,firstHeaderRowNr+nrOfHeaderRows-1] of
+                        [a,b] -> Just (a,b)
+                        _     -> Nothing
        populationRows = filter isProperRow [firstPopRowNr..lastPopRowNr]
        isProperRow :: Int -> Bool
        isProperRow rowNr
