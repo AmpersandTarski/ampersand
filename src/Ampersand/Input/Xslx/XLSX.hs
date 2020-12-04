@@ -73,10 +73,7 @@ toPops env file x = map popForColumn (colNrs x)
       else  P_RelPopu { pos = popOrigin
                       , p_src = src
                       , p_tgt = trg
-                      , p_nmdr 
-                         = case (src, trg) of
-                             (Just s, Just t) -> PNamedRel popOrigin relName (Just (P_Sign (PCpt s) (PCpt t)))
-                             _                -> PNamedRel popOrigin relName Nothing
+                      , p_nmdr = PNamedRel popOrigin relName (P_Sign <$> src <*> trg)
                       , p_popps = thePairs
                       }
      where                             
@@ -84,8 +81,6 @@ toPops env file x = map popForColumn (colNrs x)
        (src,trg) = case mTargetConceptName of
                   Just tCptName -> both (fmap mkPConcept) $ (if isFlipped' then swap else id) (Just sourceConceptName, Just tCptName)
                   Nothing -> (Nothing,Nothing)
-       mbSign :: Maybe P_Sign
-       mbSign = P_Sign <$> src <*> trg 
        popOrigin :: Origin
        popOrigin = originOfCell (relNamesRow, targetCol)
        (relNamesRow,conceptNamesRow) = headerRowNrs x
