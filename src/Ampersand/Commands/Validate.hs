@@ -17,7 +17,7 @@ import           Ampersand.Prototype.ValidateSQL (validateRulesSQL)
 
 -- | Builds a prototype of the current project.
 --
-validate :: (HasProtoOpts env, HasLogFunc env)
+validate :: (HasLogFunc env)
        => FSpec -> RIO env ()
 validate fSpec = do
     logInfo "Validating SQL expressions..."
