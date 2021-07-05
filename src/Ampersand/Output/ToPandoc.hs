@@ -11,6 +11,6 @@ where
 import Ampersand.Output.ToPandoc.ChapterIntroduction       (chpIntroduction)
 import Ampersand.Output.ToPandoc.ChapterNatLangReqs        (chpNatLangReqs)
 import Ampersand.Output.ToPandoc.ChapterDiagnosis          (chpDiagnosis)
-import Ampersand.Output.ToPandoc.ChapterConceptualAnalysis (chpConceptualAnalysis)
+import Ampersand.Output.ToPandoc.ChapterConceptualAnalysis (chpConceptualAnalysis,chpGlossary)
 import Ampersand.Output.ToPandoc.ChapterDataAnalysis       (chpDataAnalysis)
 import Ampersand.Output.ToPandoc.SharedAmongChapters

@@ -235,6 +235,7 @@ chptTitle lang cpt =
     Diagnosis             -> text.l $ (NL "Diagnose", EN "Diagnosis")
     ConceptualAnalysis    -> text.l $ (NL "Conceptuele Analyse", EN "Conceptual Analysis")
     DataAnalysis          -> text.l $ (NL "Gegevensstructuur", EN "Data structure")
+    Glossary              -> text.l $ (NL "Glossarium", EN "Glossary")
  where 
      -- shorthand for easy localizing    
     l :: LocalizedStr -> Text

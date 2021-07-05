@@ -89,6 +89,10 @@ fSpec2Pandoc env now fSpec = (thePandoc,thePictures)
                        then (text.l)
                                ( NL "Conceptuele Analyse van "
                                , EN "Conceptual Analysis of ")
+                       else if view chaptersL env == [Glossary]
+                       then (text.l)
+                               ( NL "Woordenlijst van "
+                               , EN "Glossary of ")
                        else  (text.l)
                                ( NL "Functioneel Ontwerp van "
                                , EN "Functional Design of ")
@@ -118,4 +122,5 @@ fSpec2Pandoc env now fSpec = (thePandoc,thePictures)
     fspec2Blocks Diagnosis             = chpDiagnosis           env    fSpec
     fspec2Blocks ConceptualAnalysis    = chpConceptualAnalysis  env  0 fSpec
     fspec2Blocks DataAnalysis          = chpDataAnalysis        env    fSpec
+    fspec2Blocks Glossary              = chpGlossary            env    fSpec
 

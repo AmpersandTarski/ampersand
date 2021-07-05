@@ -8,6 +8,56 @@ import           Ampersand.Output.ToPandoc.SharedAmongChapters
 import qualified RIO.List as L
 import qualified RIO.Set as Set
 import qualified RIO.Text as T
+import           GHC.Exts (sortWith)
+
+chpGlossary :: (HasDirOutput env, HasDocumentOpts env)
+   => env -> FSpec -> (Blocks,[Picture])
+chpGlossary env fSpec
+ = (    --  *** Header ***
+        xDefBlck env fSpec Glossary
+     <> --  *** Intro  ***
+        caIntro
+     <> 
+        simpleTable
+          [ (plain.text.l) (NL "Concept", EN "Meaning")
+          , (plain.text.l) (NL "Concept", EN "Betekenis")
+          ]
+          [ [ (plain . text . name) cpt , printConcept env l cpt ]
+          | cpt<-sortWith name numberedConceptDefs
+          ]
+   , [])
+  where
+    l :: LocalizedStr -> Text
+    l = localize (outputLang env fSpec)
+    caIntro :: Blocks
+    caIntro
+     = case outputLang env fSpec of
+         Dutch   -> para
+                     (  "De volgend lijst definieert " <> aantallen Dutch <> " concepten van "
+                     <> (singleQuoted.str.name) fSpec <> " voor lezers van \"de business\"."
+                     )
+         English -> para
+                     (  "This glossary defines " <> aantallen English <> " concepts of "
+                     <> (singleQuoted.str.name) fSpec <> " for readers from the business."
+                     )
+    aantallen :: Lang -> Inlines
+    aantallen lang
+     = case (length (concs fSpec), length numberedConceptDefs, lang) of
+        (_, 0, Dutch)        -> "geen"
+        (n, m, Dutch) | n==m -> "alle "<>text (tshow n)
+        (n, m, Dutch)        -> text (tshow m<>" ("<>displPercent (m,n)<>"% van "<>tshow n<>")")
+        (_, 0,   _  )        -> "no"
+        (n, m,   _  ) | n==m -> "all "<>text (tshow n)
+        (n, m,   _  )        -> text (tshow m<>" ("<>displPercent (m,n)<>"% out of "<>tshow n<>")")
+    numberedConceptDefs :: [Numbered CptCont]
+    numberedConceptDefs = [ conceptdef | themeContent <- orderingByTheme env fSpec, conceptdef <- cptsOfTheme themeContent ]
+    displPercent :: (Int,Int) -> Text
+    displPercent (m,n)
+     = tshow ip
+       where
+         num = m*200 + 1
+         den = n*2
+         ip  = abs num `div` den
 
 chpConceptualAnalysis :: (HasDirOutput env, HasDocumentOpts env)
    => env -> Int -> FSpec -> (Blocks,[Picture])

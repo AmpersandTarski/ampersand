@@ -323,5 +323,6 @@ data Chapter = Intro
              | Diagnosis
              | ConceptualAnalysis
              | DataAnalysis
+             | Glossary
              deriving (Eq, Show, Enum, Bounded) 
 

@@ -529,14 +529,14 @@ printConcept :: (HasDocumentOpts env) =>
     env -> (LocalizedStr -> Text) -> Numbered CptCont -> Blocks
 printConcept env l nCpt
         = -- Purposes:
-           (printPurposes . cCptPurps . theLoad) nCpt
-         <> case (nubByContent . cCptDefs . theLoad) nCpt of
+            case (nubByContent . cCptDefs . theLoad) nCpt of
              []    -> mempty  -- There is no definition of the concept
              [cd] -> printCDef cd Nothing
              cds  -> mconcat
                     [printCDef cd (Just $ T.snoc "." suffx)
                     |(cd,suffx) <- zip cds ['a' ..]  -- There are multiple definitions. Which one is the correct one?
                     ]
+        <> (printPurposes . cCptPurps . theLoad) nCpt
         where
          fspecFormat = view fspecFormatL env
          nubByContent = L.nubBy (\x y -> fun x == fun y) -- fixes https://github.com/AmpersandTarski/Ampersand/issues/617

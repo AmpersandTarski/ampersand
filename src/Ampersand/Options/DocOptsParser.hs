@@ -40,8 +40,8 @@ docOptsParser =
 
 chaptersP :: Parser [Chapter]
 chaptersP =  
-   (\intro sharedlang diagnosis conceptualanalysis dataanalysis ->
-     let x = [intro,sharedlang,diagnosis,conceptualanalysis,dataanalysis]
+   (\intro sharedlang diagnosis conceptualanalysis dataanalysis glossary->
+     let x = [intro,sharedlang,diagnosis,conceptualanalysis,dataanalysis,glossary]
      in 
      if length x /= length [c::Chapter | c <- [minBound..]] 
      then --To fix this: make sute all chapters are handled in this function.
@@ -69,6 +69,7 @@ chaptersP =
      <*> chapterParser Diagnosis
      <*> chapterParser ConceptualAnalysis
      <*> chapterParser DataAnalysis
+     <*> chapterParser Glossary
   where
     isTrue :: (Chapter,Maybe Bool) -> Bool
     isTrue (_,Just True) = True

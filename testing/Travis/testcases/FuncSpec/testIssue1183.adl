@@ -1,29 +1,27 @@
 CONTEXT TestIssue1183
 
 PATTERN FOO
-CONCEPT A123  "string 1"  "ref"
-MEANING {+ string 2 +}
-
-CONCEPT A123L  "string 1"  "ref"
-MEANING LATEX {+ string 2 +}
-
-CONCEPT A13  "string 1"
-MEANING {+ string 2 +}
-
-CONCEPT A13L  "string 1"
-MEANING LATEX {+ string 2 +}
-
 CONCEPT A12  "string 1"  "ref"
+
+CONCEPT A123L
+MEANING LATEX {+ string 2 +}
+
+CONCEPT A12
+MEANING LATEX {+ string 2 +}
+
+CONCEPT A12  "string 3"  "ref"
 
 CONCEPT A1  "string 1"
 
-CONCEPT A123  "string 3"  "ref"
-MEANING {+ string 4 +}
+CONCEPT A12
+MEANING MARKDOWN {+ string 2 +}
 
 RELATION foo[A123 * A123L]
-RELATION foo[A133 * A13L]
+RELATION foo[A123 * A123L]
 RELATION foo[A1 * A12]
 ENDPATTERN
+
+RELATION foo[A1 * A12]
 
 CONCEPT A3
 MEANING {+ string 5 +}
