@@ -32,7 +32,8 @@ module Ampersand.Output.ToPandoc.SharedAmongChapters
     , plainText
     , showPredLogic
     , legacyTable
-    , printConcept
+    , printConceptDef
+    , printConceptPurp
     )
 where
 import           Ampersand.ADL1 hiding (Meta)
@@ -332,7 +333,7 @@ orderingByTheme env fSpec
                    , cDclMeanings = meanings dcl
                    , cDclPairs = pairsInExpr fSpec (EDcD dcl)
                    }
-   
+
      cpt2cptCont :: Numbered AConceptDef -> Numbered CptCont
      cpt2cptCont (Nr n cpt)
        = Nr n CCpt { cCpt      = c
@@ -525,18 +526,16 @@ legacyTable caption' cellspecs headers rows =
 
 -- | This function is used in the conceptual analysis chapter as wel as the natural language chapter. To avoid
 --   code duplication, it has been placed in this shared module.
-printConcept :: (HasDocumentOpts env) =>
+printConceptDef :: (HasDocumentOpts env) =>
     env -> (LocalizedStr -> Text) -> Numbered CptCont -> Blocks
-printConcept env l nCpt
-        = -- Purposes:
-            case (nubByContent . cCptDefs . theLoad) nCpt of
-             []    -> mempty  -- There is no definition of the concept
-             [cd] -> printCDef cd Nothing
-             cds  -> mconcat
-                    [printCDef cd (Just $ T.snoc "." suffx)
-                    |(cd,suffx) <- zip cds ['a' ..]  -- There are multiple definitions. Which one is the correct one?
-                    ]
-        <> (printPurposes . cCptPurps . theLoad) nCpt
+printConceptDef env l nCpt
+        = case (nubByContent . cCptDefs . theLoad) nCpt of
+           []   -> mempty  -- There is no definition of the concept
+           [cd] -> printCDef cd Nothing
+           cds  -> mconcat
+                  [printCDef cd (Just $ T.snoc "." suffx)
+                  |(cd,suffx) <- zip cds ['a' ..]  -- There are multiple definitions. Which one is the correct one?
+                  ]
         where
          fspecFormat = view fspecFormatL env
          nubByContent = L.nubBy (\x y -> fun x == fun y) -- fixes https://github.com/AmpersandTarski/Ampersand/issues/617
@@ -556,3 +555,8 @@ printConcept env l nCpt
                )
               ]
 
+
+-- | This function is used in the conceptual analysis chapter as wel as the natural language chapter. To avoid
+--   code duplication, it has been placed in this shared module.
+printConceptPurp :: Numbered CptCont -> Blocks
+printConceptPurp = printPurposes . cCptPurps . theLoad

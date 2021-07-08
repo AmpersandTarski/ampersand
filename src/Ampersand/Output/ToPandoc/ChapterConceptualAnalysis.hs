@@ -22,7 +22,7 @@ chpGlossary env fSpec
           [ (plain.text.l) (NL "Concept", EN "Meaning")
           , (plain.text.l) (NL "Concept", EN "Betekenis")
           ]
-          [ [ (plain . text . name) cpt , printConcept env l cpt ]
+          [ [ (plain . text . name) cpt , printConceptDef env l cpt ]
           | cpt<-sortWith name numberedConceptDefs
           ]
    , [])
@@ -103,11 +103,11 @@ chpConceptualAnalysis env lev fSpec
   pictOfConcept = makePicture env fSpec . PTCDConcept
   caSection :: ThemeContent -> Blocks
   caSection themeContent
-    | isNothing (patOfTheme themeContent)  &&
-      null      (cptsOfTheme themeContent) &&
-      null      (dclsOfTheme themeContent) &&
-      null      (rulesOfTheme themeContent) = mempty
-    | otherwise =
+   | isNothing (patOfTheme themeContent)  &&
+     null      (cptsOfTheme themeContent) &&
+     null      (dclsOfTheme themeContent) &&
+     null      (rulesOfTheme themeContent) = mempty
+   | otherwise =
         --  *** Header of the theme: ***
         (xDefBlck env fSpec . XRefSharedLangTheme . patOfTheme) themeContent
         -- The section starts with the reason(s) why this pattern exist(s)
@@ -115,7 +115,7 @@ chpConceptualAnalysis env lev fSpec
           Just pat -> purposes2Blocks env (purposesOf fSpec outputLang' pat)
           Nothing  -> mempty
         -- followed by a conceptual model for this pattern
-   <> (mconcat . map (printConcept env l) . cptsOfTheme) themeContent
+     <> (mconcat . map (\x->printConceptDef env l x<>printConceptPurp x) . cptsOfTheme) themeContent
      <> ( case (outputLang', patOfTheme themeContent) of
                (Dutch, Just pat)   -> -- announce the conceptual diagram
                                       para (hyperLinkTo (pictOfPat pat) <> "Conceptueel diagram van " <> (singleQuoted . str . name) pat<> ".")
@@ -131,17 +131,16 @@ chpConceptualAnalysis env lev fSpec
         -- This list contains empty spots for relations without documentation.
      <> caRemainingRelations
      <>
-    (   -- print the rules that are defined in this pattern.
-       case map caRule . Set.elems $ invariants fSpec `Set.intersection` (Set.fromList . map (cRul . theLoad) . rulesOfTheme) themeContent of
-         []     -> mempty
-         blocks -> (case outputLang' of
-                      Dutch   -> header (lev+3) "Regels"
-                              <> plain "Deze paragraaf geeft een opsomming van de regels met een verwijzing naar de gemeenschappelijke taal van de belanghebbenden ten behoeve van de traceerbaarheid."
-                      English -> header (lev+3) "Rules"
-                              <> plain "This section itemizes the rules with a reference to the shared language of stakeholders for the sake of traceability."
-                   )
-                   <> definitionList blocks
-    )
+       -- print the rules that are defined in this pattern.
+      case map caRule . Set.elems $ invariants fSpec `Set.intersection` (Set.fromList . map (cRul . theLoad) . rulesOfTheme) themeContent of
+        []     -> mempty
+        blocks -> (case outputLang' of
+                     Dutch   -> header (lev+3) "Regels"
+                             <> plain "Deze paragraaf geeft een opsomming van de regels met een verwijzing naar de gemeenschappelijke taal van de belanghebbenden ten behoeve van de traceerbaarheid."
+                     English -> header (lev+3) "Rules"
+                             <> plain "This section itemizes the rules with a reference to the shared language of stakeholders for the sake of traceability."
+                  )
+                  <> definitionList blocks
     where
       themeClasses :: [Class]
       themeClasses = case patOfTheme themeContent of

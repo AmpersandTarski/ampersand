@@ -85,7 +85,7 @@ chpNatLangReqs env lev fSpec =
                      []    -> printIntro    (cptsOfTheme tc)
                      purps -> purposes2Blocks env purps
              )
-          <> (mconcat . map (printConcept env l). cptsOfTheme ) tc
+          <> (mconcat . map (\x->printConceptDef env l x<>printConceptPurp x). cptsOfTheme ) tc
           <> (mconcat . map printRel     . dclsOfTheme ) tc
           <> (mconcat . map printRule    . rulesOfTheme) tc
       where
